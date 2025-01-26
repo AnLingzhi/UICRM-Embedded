@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,7 +27,7 @@ jobs:
         mkdir ~/arm-toolchain-v10-3
         tar -xf ~/gcc-arm-none-eabi.tar.xz --directory ~/arm-toolchain-v10-3 --strip-components=1
     - name: add system path
-      run: echo "~/arm-toolchain-v10-3/bin" >> $GITHUB_PATH  # set envrionment variable
+      run: echo "~/arm-toolchain-v10-3/bin" >> $GITHUB_PATH  # set environment variable
     - name: cmake
       run: |
         mkdir build && cd build
@@ -40,3 +39,37 @@ jobs:
     - name: build
       run: make -j
       working-directory: build
+    # Upload artifacts for release
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: build/output/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    # Checkout the repository
+    - uses: actions/checkout@v2
+    # Create a release
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+    # Upload artifacts to the release
+    - name: Upload Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: build/output/
+        asset_name: build-output.zip
+        asset_content_type: application/zip
